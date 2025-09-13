@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Webcade - Retro Arcade Games</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P:wght@400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title glitch" data-text="THE WEBCADE">THE WEBCADE</h1>
+            <p class="subtitle">Classic Arcade Games - Play Free!</p>
+            <div class="controls">
+                <button id="randomGame" class="btn btn-special">🎲 Random Game</button>
+                <button id="muteToggle" class="btn btn-sound">🔊</button>
+            </div>
+        </header>
+
+        <main class="games-grid">
+            <div class="game-card" data-game="snake">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🐍</div>
+                </div>
+                <h3>Snake</h3>
+                <p>Classic Snake - how long can you survive?</p>
+                <div class="high-score">Best: <span id="snake-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="tetris">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🧩</div>
+                </div>
+                <h3>Tetris</h3>
+                <p>Stack blocks and clear lines to score!</p>
+                <div class="high-score">Best: <span id="tetris-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="flappy">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🐦</div>
+                </div>
+                <h3>Flappy Bird</h3>
+                <p>Tap to flap through the pipes!</p>
+                <div class="high-score">Best: <span id="flappy-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="pong">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🏓</div>
+                </div>
+                <h3>Pong</h3>
+                <p>The original video game classic!</p>
+                <div class="high-score">Best: <span id="pong-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="breakout">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🧱</div>
+                </div>
+                <h3>Breakout</h3>
+                <p>Break all the bricks to win!</p>
+                <div class="high-score">Best: <span id="breakout-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="minesweeper">
+                <div class="game-thumbnail">
+                    <div class="game-icon">💣</div>
+                </div>
+                <h3>Minesweeper</h3>
+                <p>Find all mines without exploding!</p>
+                <div class="high-score">Best: <span id="minesweeper-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="invaders">
+                <div class="game-thumbnail">
+                    <div class="game-icon">👾</div>
+                </div>
+                <h3>Space Invaders</h3>
+                <p>Defend Earth from alien invasion!</p>
+                <div class="high-score">Best: <span id="invaders-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="asteroids">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🚀</div>
+                </div>
+                <h3>Asteroids</h3>
+                <p>Navigate space and destroy asteroids!</p>
+                <div class="high-score">Best: <span id="asteroids-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="pacman">
+                <div class="game-thumbnail">
+                    <div class="game-icon">👻</div>
+                </div>
+                <h3>Pac-Man</h3>
+                <p>Chomp dots and avoid the ghosts!</p>
+                <div class="high-score">Best: <span id="pacman-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="2048">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🔢</div>
+                </div>
+                <h3>2048</h3>
+                <p>Combine tiles to reach 2048!</p>
+                <div class="high-score">Best: <span id="2048-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="geometry">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🔺</div>
+                </div>
+                <h3>Geometry Dash</h3>
+                <p>Jump over obstacles in this rhythm game!</p>
+                <div class="high-score">Best: <span id="geometry-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="colorblind">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🎨</div>
+                </div>
+                <h3>Color Blind</h3>
+                <p>Match the colors as fast as you can!</p>
+                <div class="high-score">Best: <span id="colorblind-score">0</span></div>
+            </div>
+
+            <div class="game-card" data-game="racing">
+                <div class="game-thumbnail">
+                    <div class="game-icon">🏎️</div>
+                </div>
+                <h3>Car Racing</h3>
+                <p>Dodge traffic and survive as long as possible!</p>
+                <div class="high-score">Best: <span id="racing-score">0</span></div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Made with ❤️ by Ayan Atif</p>
+        </footer>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

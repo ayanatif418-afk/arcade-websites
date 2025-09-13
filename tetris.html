@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris - The Webcade</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P:wght@400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <button id="backBtn" class="back-btn">← Back to Arcade</button>
+            <div class="game-info">
+                <span class="score">Score: <span id="scoreValue">0</span></span>
+                <span class="score">High: <span id="highScoreValue">0</span></span>
+                <span class="level">Level: <span id="levelValue">1</span></span>
+                <span class="level">Lines: <span id="linesValue">0</span></span>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" class="game-canvas" width="400" height="600"></canvas>
+        
+        <div class="controls-info" style="margin-top: 20px; text-align: center; font-size: 10px; color: #cccccc;">
+            <p>Arrow keys to move • Up arrow or Space to rotate • Down arrow to drop faster</p>
+            <p>Mobile: Tap to rotate • Swipe left/right to move • Swipe down to drop</p>
+        </div>
+    </div>
+
+    <div id="gameOver" class="game-over hidden">
+        <h2>Game Over!</h2>
+        <p>Score: <span id="finalScore">0</span></p>
+        <p id="newHighScore" style="color: #ffff00; display: none;">🎉 New High Score! 🎉</p>
+        <button id="restartBtn" class="restart-btn">Play Again</button>
+        <button id="homeBtn" class="restart-btn">Back to Arcade</button>
+    </div>
+
+    <script src="gameBase.js"></script>
+    <script src="main.js"></script>
+    <script>
+        class TetrisGame extends GameBase {
+            constructor() {
+                super('gameCanvas', 'tetris');
+                this.blockSize = 30;
+                this.cols = 10;
+                this.rows = 20;
+                this.canvas.width = this.cols * this.blockSize;
+                this.canvas.height = this.rows * this.blockSize;
+                this.init();
+                this.gameLoop();
+            }
+
+            init() {
+                this.board = Array(this.rows).fill().map(() => Array(this.cols).fill(0));
+                this.currentPiece = this.getRandomPiece();
+                this.nextPiece = this.getRandomPiece();
+                this.score = 0;
+                this.level = 1;
+                this.lines = 0;
+                this.dropTime = 0;
+                this.dropInterval = 1000;
+                this.gameOver = false;
+                
+                document.getElementById('highScoreValue').textContent = this.highScore;
+                document.getElementById('levelValue').textContent = this.level;
+                document.getElementById('linesValue').textContent = this.lines;
+                
+                this.attachEventListeners();
+            }
+
+            pieces = {
+                'I': [[1,1,1,1]],
+                'O': [[1,1],[1,1]],
+                'T': [[0,1,0],[1,1,1]],
+                'S': [[0,1,1],[1,1,0]],
+                'Z': [[1,1,0],[0,1,1]],
+                'J': [[1,0,0],[1,1,1]],
+                'L': [[0,0,1],[1,1,1]]
+            };
+
+            colors = {
+                'I': '#00ffff',
+                'O': '#ffff00',
+                'T': '#ff00ff',
+                'S': '#00ff00',
+                'Z': '#ff0000',
+                'J': '#0000ff',
+                'L': '#ff8800'
+            };
+
+            getRandomPiece() {
+                const types = Object.keys(this.pieces);
+                const type = types[Math.floor(Math.random() * types.length)];
+                return {
+                    type: type,
+                    shape: this.pieces[type],
+                    x: Math.floor(this.cols / 2) - Math.floor(this.pieces[type][0].length / 2),
+                    y: 0,
+                    color: this.colors[type]
+                };
+            }
+
+            attachEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    if (this.gameOver || this.paused) return;
+                    
+                    switch(e.code) {
+                        case 'ArrowLeft':
+                            this.movePiece(-1, 0);
+                            break;
+                        case 'ArrowRight':
+                            this.movePiece(1, 0);
+                            break;
+                        case 'ArrowDown':
+                            this.movePiece(0, 1);
+                            break;
+                        case 'ArrowUp':
+                        case 'Space':
+                            e.preventDefault();
+                            this.rotatePiece();
+                            break;
+                    }
+                });
+
+                // Touch controls
+                let startX, startY;
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                });
+
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if (!startX || !startY || this.gameOver || this.paused) return;
+
+                    const endX = e.changedTouches[0].clientX;
+                    const endY = e.changedTouches[0].clientY;
+                    const diffX = startX - endX;
+                    const diffY = startY - endY;
+
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        if (Math.abs(diffX) > 20) {
+                            if (diffX > 0) {
+                                this.movePiece(-1, 0);
+                            } else {
+                                this.movePiece(1, 0);
+                            }
+                        }
+                    } else {
+                        if (diffY < -20) {
+                            this.rotatePiece();
+                        } else if (diffY > 20) {
+                            this.movePiece(0, 1);
+                        }
+                    }
+
+                    if (Math.abs(diffX) < 10 && Math.abs(diffY) < 10) {
+                        this.rotatePiece();
+                    }
+                });
+            }
+
+            movePiece(dx, dy) {
+                if (this.canMove(this.currentPiece, dx, dy)) {
+                    this.currentPiece.x += dx;
+                    this.currentPiece.y += dy;
+                    return true;
+                }
+                return false;
+            }
+
+            rotatePiece() {
+                const rotated = this.rotate(this.currentPiece.shape);
+                const oldShape = this.currentPiece.shape;
+                this.currentPiece.shape = rotated;
+                
+                if (!this.canMove(this.currentPiece, 0, 0)) {
+                    this.currentPiece.shape = oldShape;
+                } else {
+                    WebcadeUtils.playSound(440, 0.05);
+                }
+            }
+
+            rotate(shape) {
+                const rotated = [];
+                for (let i = 0; i < shape[0].length; i++) {
+                    rotated[i] = [];
+                    for (let j = 0; j < shape.length; j++) {
+                        rotated[i][j] = shape[shape.length - 1 - j][i];
+                    }
+                }
+                return rotated;
+            }
+
+            canMove(piece, dx, dy) {
+                for (let y = 0; y < piece.shape.length; y++) {
+                    for (let x = 0; x < piece.shape[y].length; x++) {
+                        if (piece.shape[y][x]) {
+                            const newX = piece.x + x + dx;
+                            const newY = piece.y + y + dy;
+                            
+                            if (newX < 0 || newX >= this.cols || 
+                                newY >= this.rows ||
+                                (newY >= 0 && this.board[newY][newX])) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            lockPiece() {
+                for (let y = 0; y < this.currentPiece.shape.length; y++) {
+                    for (let x = 0; x < this.currentPiece.shape[y].length; x++) {
+                        if (this.currentPiece.shape[y][x]) {
+                            const boardY = this.currentPiece.y + y;
+                            const boardX = this.currentPiece.x + x;
+                            
+                            if (boardY >= 0) {
+                                this.board[boardY][boardX] = this.currentPiece.color;
+                            }
+                        }
+                    }
+                }
+                
+                this.clearLines();
+                this.currentPiece = this.nextPiece;
+                this.nextPiece = this.getRandomPiece();
+                
+                if (!this.canMove(this.currentPiece, 0, 0)) {
+                    this.endGame();
+                }
+            }
+
+            clearLines() {
+                let linesCleared = 0;
+                
+                for (let y = this.rows - 1; y >= 0; y--) {
+                    if (this.board[y].every(cell => cell !== 0)) {
+                        this.board.splice(y, 1);
+                        this.board.unshift(Array(this.cols).fill(0));
+                        linesCleared++;
+                        y++; // Check the same line again
+                    }
+                }
+                
+                if (linesCleared > 0) {
+                    this.lines += linesCleared;
+                    this.level = Math.floor(this.lines / 10) + 1;
+                    this.dropInterval = Math.max(50, 1000 - (this.level - 1) * 50);
+                    
+                    let points = 0;
+                    switch(linesCleared) {
+                        case 1: points = 100; break;
+                        case 2: points = 300; break;
+                        case 3: points = 500; break;
+                        case 4: points = 800; break;
+                    }
+                    
+                    this.score += points * this.level;
+                    this.updateScore(this.score);
+                    document.getElementById('levelValue').textContent = this.level;
+                    document.getElementById('linesValue').textContent = this.lines;
+                    
+                    WebcadeUtils.playSound(880, 0.2);
+                }
+            }
+
+            update(deltaTime) {
+                if (this.gameOver || this.paused) return;
+
+                this.dropTime += deltaTime;
+                
+                if (this.dropTime >= this.dropInterval) {
+                    if (!this.movePiece(0, 1)) {
+                        this.lockPiece();
+                    }
+                    this.dropTime = 0;
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                this.ctx.fillStyle = '#0a0a0a';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw board
+                for (let y = 0; y < this.rows; y++) {
+                    for (let x = 0; x < this.cols; x++) {
+                        if (this.board[y][x]) {
+                            this.drawBlock(x, y, this.board[y][x]);
+                        }
+                    }
+                }
+
+                // Draw current piece
+                if (this.currentPiece) {
+                    for (let y = 0; y < this.currentPiece.shape.length; y++) {
+                        for (let x = 0; x < this.currentPiece.shape[y].length; x++) {
+                            if (this.currentPiece.shape[y][x]) {
+                                this.drawBlock(
+                                    this.currentPiece.x + x,
+                                    this.currentPiece.y + y,
+                                    this.currentPiece.color
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Draw grid lines
+                this.ctx.strokeStyle = '#333';
+                this.ctx.lineWidth = 1;
+                for (let x = 0; x <= this.cols; x++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x * this.blockSize, 0);
+                    this.ctx.lineTo(x * this.blockSize, this.canvas.height);
+                    this.ctx.stroke();
+                }
+                for (let y = 0; y <= this.rows; y++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, y * this.blockSize);
+                    this.ctx.lineTo(this.canvas.width, y * this.blockSize);
+                    this.ctx.stroke();
+                }
+
+                if (this.paused) {
+                    this.drawPauseScreen();
+                }
+            }
+
+            drawBlock(x, y, color) {
+                this.ctx.fillStyle = color;
+                this.ctx.fillRect(
+                    x * this.blockSize + 1,
+                    y * this.blockSize + 1,
+                    this.blockSize - 2,
+                    this.blockSize - 2
+                );
+                
+                // Add glow effect
+                this.ctx.shadowBlur = 5;
+                this.ctx.shadowColor = color;
+                this.ctx.fillRect(
+                    x * this.blockSize + 1,
+                    y * this.blockSize + 1,
+                    this.blockSize - 2,
+                    this.blockSize - 2
+                );
+                this.ctx.shadowBlur = 0;
+            }
+
+            endGame() {
+                this.gameOver = true;
+                this.showGameOver();
+            }
+
+            restart() {
+                this.init();
+            }
+
+            gameLoop() {
+                const now = Date.now();
+                const deltaTime = now - (this.lastTime || now);
+                this.lastTime = now;
+
+                this.update(deltaTime);
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new TetrisGame();
+        });
+    </script>
+</body>
+</html>

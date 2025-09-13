@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometry Dash - The Webcade</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P:wght@400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <button id="backBtn" class="back-btn">← Back to Arcade</button>
+            <div class="game-info">
+                <span class="score">Score: <span id="scoreValue">0</span></span>
+                <span class="score">High: <span id="highScoreValue">0</span></span>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" class="game-canvas" width="800" height="400"></canvas>
+        
+        <div class="controls-info" style="margin-top: 20px; text-align: center; font-size: 10px; color: #cccccc;">
+            <p>W or Up Arrow to jump • Mobile: Tap to jump</p>
+            <p>Jump over obstacles and survive!</p>
+        </div>
+    </div>
+
+    <div id="gameOver" class="game-over hidden">
+        <h2>Game Over!</h2>
+        <p>Score: <span id="finalScore">0</span></p>
+        <p id="newHighScore" style="color: #ffff00; display: none;">🎉 New High Score! 🎉</p>
+        <button id="restartBtn" class="restart-btn">Play Again</button>
+        <button id="homeBtn" class="restart-btn">Back to Arcade</button>
+    </div>
+
+    <script src="gameBase.js"></script>
+    <script src="main.js"></script>
+    <script>
+        class GeometryDashGame extends GameBase {
+            constructor() {
+                super('gameCanvas', 'geometry');
+                this.init();
+                this.gameLoop();
+            }
+
+            init() {
+                this.player = {
+                    x: 100,
+                    y: this.canvas.height - 80,
+                    width: 30,
+                    height: 30,
+                    velocityY: 0,
+                    onGround: true,
+                    jumpPower: -15,
+                    gravity: 0.8
+                };
+
+                this.obstacles = [];
+                this.particles = [];
+                this.camera = { x: 0 };
+                this.gameSpeed = 5;
+                this.obstacleSpawnTimer = 0;
+                this.score = 0;
+                this.gameOver = false;
+                this.gameStarted = false;
+                
+                document.getElementById('highScoreValue').textContent = this.highScore;
+                
+                this.attachEventListeners();
+            }
+
+            attachEventListeners() {
+                const jump = () => {
+                    if (this.gameOver || this.paused) return;
+                    
+                    if (!this.gameStarted) {
+                        this.gameStarted = true;
+                    }
+                    
+                    if (this.player.onGround) {
+                        this.player.velocityY = this.player.jumpPower;
+                        this.player.onGround = false;
+                        WebcadeUtils.playSound(440, 0.1);
+                    }
+                };
+
+                document.addEventListener('keydown', (e) => {
+                    if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !this.paused) {
+                        e.preventDefault();
+                        jump();
+                    }
+                });
+
+                this.canvas.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (!this.paused) jump();
+                });
+                
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (!this.paused) jump();
+                });
+            }
+
+            spawnObstacle() {
+                const types = ['spike', 'block', 'saw'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                let obstacle = {
+                    x: this.camera.x + this.canvas.width + 50,
+                    type: type,
+                    passed: false
+                };
+
+                switch(type) {
+                    case 'spike':
+                        obstacle.y = this.canvas.height - 50;
+                        obstacle.width = 30;
+                        obstacle.height = 50;
+                        break;
+                    case 'block':
+                        obstacle.y = this.canvas.height - 80;
+                        obstacle.width = 40;
+                        obstacle.height = 80;
+                        break;
+                    case 'saw':
+                        obstacle.y = this.canvas.height - 100;
+                        obstacle.width = 50;
+                        obstacle.height = 50;
+                        obstacle.rotation = 0;
+                        break;
+                }
+
+                this.obstacles.push(obstacle);
+            }
+
+            update() {
+                if (this.gameOver || this.paused || !this.gameStarted) return;
+
+                // Update camera to follow player
+                this.camera.x = this.player.x - 150;
+
+                // Player physics
+                this.player.velocityY += this.player.gravity;
+                this.player.y += this.player.velocityY;
+
+                // Ground collision
+                const groundY = this.canvas.height - 50;
+                if (this.player.y + this.player.height >= groundY) {
+                    this.player.y = groundY - this.player.height;
+                    this.player.velocityY = 0;
+                    this.player.onGround = true;
+                } else {
+                    this.player.onGround = false;
+                }
+
+                // Ceiling collision
+                if (this.player.y <= 0) {
+                    this.player.y = 0;
+                    this.player.velocityY = 0;
+                }
+
+                // Move player forward automatically
+                this.player.x += this.gameSpeed;
+
+                // Spawn obstacles
+                this.obstacleSpawnTimer++;
+                if (this.obstacleSpawnTimer > 80 + Math.random() * 40) {
+                    this.spawnObstacle();
+                    this.obstacleSpawnTimer = 0;
+                }
+
+                // Update obstacles
+                for (let i = this.obstacles.length - 1; i >= 0; i--) {
+                    const obstacle = this.obstacles[i];
+                    
+                    if (obstacle.type === 'saw') {
+                        obstacle.rotation += 0.2;
+                    }
+
+                    // Score when passing obstacle
+                    if (!obstacle.passed && obstacle.x + obstacle.width < this.player.x) {
+                        obstacle.passed = true;
+                        this.score += 10;
+                        this.updateScore(this.score);
+                        WebcadeUtils.playSound(880, 0.05);
+                    }
+
+                    // Remove off-screen obstacles
+                    if (obstacle.x + obstacle.width < this.camera.x - 100) {
+                        this.obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    // Collision detection
+                    if (this.player.x < obstacle.x + obstacle.width &&
+                        this.player.x + this.player.width > obstacle.x &&
+                        this.player.y < obstacle.y + obstacle.height &&
+                        this.player.y + this.player.height > obstacle.y) {
+                        this.endGame();
+                        return;
+                    }
+                }
+
+                // Create particles
+                if (Math.random() < 0.3) {
+                    this.particles.push({
+                        x: this.camera.x + this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        velocityX: -this.gameSpeed - Math.random() * 3,
+                        velocityY: (Math.random() - 0.5) * 2,
+                        life: 60,
+                        maxLife: 60
+                    });
+                }
+
+                // Update particles
+                this.particles = this.particles.filter(particle => {
+                    particle.x += particle.velocityX;
+                    particle.y += particle.velocityY;
+                    particle.life--;
+                    return particle.life > 0;
+                });
+
+                // Increase difficulty
+                if (this.score > 0 && this.score % 100 === 0) {
+                    this.gameSpeed += 0.1;
+                }
+            }
+
+            draw() {
+                // Clear canvas with gradient
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                gradient.addColorStop(0, '#1a1a2e');
+                gradient.addColorStop(1, '#16213e');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Save context for camera
+                this.ctx.save();
+                this.ctx.translate(-this.camera.x, 0);
+
+                // Draw ground
+                this.ctx.fillStyle = '#00ff00';
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = '#00ff00';
+                this.ctx.fillRect(this.camera.x - 100, this.canvas.height - 20, this.canvas.width + 200, 20);
+
+                // Draw obstacles
+                this.obstacles.forEach(obstacle => {
+                    this.ctx.save();
+                    
+                    if (obstacle.type === 'saw') {
+                        this.ctx.translate(obstacle.x + obstacle.width/2, obstacle.y + obstacle.height/2);
+                        this.ctx.rotate(obstacle.rotation);
+                        this.ctx.fillStyle = '#ff0000';
+                        this.ctx.shadowColor = '#ff0000';
+                        this.ctx.fillRect(-obstacle.width/2, -obstacle.height/2, obstacle.width, obstacle.height);
+                    } else {
+                        this.ctx.fillStyle = obstacle.type === 'spike' ? '#ff00ff' : '#ffff00';
+                        this.ctx.shadowColor = this.ctx.fillStyle;
+                        this.ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                    }
+                    
+                    this.ctx.restore();
+                });
+
+                // Draw player
+                this.ctx.fillStyle = '#00ffff';
+                this.ctx.shadowColor = '#00ffff';
+                this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
+
+                // Draw particles
+                this.particles.forEach(particle => {
+                    const alpha = particle.life / particle.maxLife;
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    this.ctx.shadowBlur = 0;
+                    this.ctx.fillRect(particle.x, particle.y, 2, 2);
+                });
+
+                this.ctx.restore();
+
+                // Draw start message
+                if (!this.gameStarted) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.font = '24px "Press Start 2P"';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.shadowBlur = 0;
+                    this.ctx.fillText('GEOMETRY DASH', this.canvas.width / 2, this.canvas.height / 2 - 30);
+                    
+                    this.ctx.font = '12px "Press Start 2P"';
+                    this.ctx.fillText('Press W or UP ARROW to jump', this.canvas.width / 2, this.canvas.height / 2 + 20);
+                }
+
+                this.ctx.shadowBlur = 0;
+
+                if (this.paused) {
+                    this.drawPauseScreen();
+                }
+            }
+
+            endGame() {
+                this.gameOver = true;
+                this.showGameOver();
+            }
+
+            restart() {
+                this.init();
+            }
+
+            gameLoop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new GeometryDashGame();
+        });
+    </script>
+</body>
+</html>

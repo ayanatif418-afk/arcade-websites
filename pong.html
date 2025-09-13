@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - The Webcade</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P:wght@400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <button id="backBtn" class="back-btn">← Back to Arcade</button>
+            <div class="game-info">
+                <span class="score">Player: <span id="scoreValue">0</span></span>
+                <span class="score">Computer: <span id="computerScore">0</span></span>
+                <span class="score">High: <span id="highScoreValue">0</span></span>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" class="game-canvas" width="800" height="400"></canvas>
+        
+        <div class="controls-info" style="margin-top: 20px; text-align: center; font-size: 10px; color: #cccccc;">
+            <p>Use W/S keys or Up/Down arrows to move • Mobile: Touch and drag</p>
+            <p>First to 5 points wins!</p>
+        </div>
+    </div>
+
+    <div id="gameOver" class="game-over hidden">
+        <h2 id="gameOverTitle">Game Over!</h2>
+        <p>Your Score: <span id="finalScore">0</span></p>
+        <p id="newHighScore" style="color: #ffff00; display: none;">🎉 New High Score! 🎉</p>
+        <button id="restartBtn" class="restart-btn">Play Again</button>
+        <button id="homeBtn" class="restart-btn">Back to Arcade</button>
+    </div>
+
+    <script src="gameBase.js"></script>
+    <script src="main.js"></script>
+    <script>
+        class PongGame extends GameBase {
+            constructor() {
+                super('gameCanvas', 'pong');
+                this.init();
+                this.gameLoop();
+            }
+
+            init() {
+                this.paddle = {
+                    x: 20,
+                    y: this.canvas.height / 2 - 50,
+                    width: 15,
+                    height: 100,
+                    speed: 5
+                };
+
+                this.aiPaddle = {
+                    x: this.canvas.width - 35,
+                    y: this.canvas.height / 2 - 50,
+                    width: 15,
+                    height: 100,
+                    speed: 4
+                };
+
+                this.ball = {
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2,
+                    width: 15,
+                    height: 15,
+                    velocityX: 5,
+                    velocityY: 3,
+                    speed: 5
+                };
+
+                this.playerScore = 0;
+                this.computerScore = 0;
+                this.gameOver = false;
+                this.winScore = 5;
+                
+                document.getElementById('highScoreValue').textContent = this.highScore;
+                document.getElementById('scoreValue').textContent = this.playerScore;
+                document.getElementById('computerScore').textContent = this.computerScore;
+                
+                this.attachEventListeners();
+            }
+
+            attachEventListeners() {
+                this.keys = {};
+                
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.key] = true;
+                });
+                
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.key] = false;
+                });
+
+                // Touch controls
+                let touching = false;
+                let touchY = 0;
+
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    touching = true;
+                    touchY = e.touches[0].clientY;
+                });
+
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (touching) {
+                        const rect = this.canvas.getBoundingClientRect();
+                        const y = e.touches[0].clientY - rect.top;
+                        this.paddle.y = (y / rect.height) * this.canvas.height - this.paddle.height / 2;
+                    }
+                });
+
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    touching = false;
+                });
+            }
+
+            update() {
+                if (this.gameOver || this.paused) return;
+
+                // Player paddle movement
+                if (this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) {
+                    this.paddle.y -= this.paddle.speed;
+                }
+                if (this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) {
+                    this.paddle.y += this.paddle.speed;
+                }
+
+                // Keep paddle in bounds
+                this.paddle.y = Math.max(0, Math.min(this.canvas.height - this.paddle.height, this.paddle.y));
+
+                // AI paddle movement
+                const aiCenter = this.aiPaddle.y + this.aiPaddle.height / 2;
+                const ballCenter = this.ball.y + this.ball.height / 2;
+                
+                if (aiCenter < ballCenter - 35) {
+                    this.aiPaddle.y += this.aiPaddle.speed;
+                } else if (aiCenter > ballCenter + 35) {
+                    this.aiPaddle.y -= this.aiPaddle.speed;
+                }
+
+                // Keep AI paddle in bounds
+                this.aiPaddle.y = Math.max(0, Math.min(this.canvas.height - this.aiPaddle.height, this.aiPaddle.y));
+
+                // Ball movement
+                this.ball.x += this.ball.velocityX;
+                this.ball.y += this.ball.velocityY;
+
+                // Ball collision with top and bottom walls
+                if (this.ball.y <= 0 || this.ball.y + this.ball.height >= this.canvas.height) {
+                    this.ball.velocityY = -this.ball.velocityY;
+                    WebcadeUtils.playSound(220, 0.1);
+                }
+
+                // Ball collision with player paddle
+                if (this.ball.x <= this.paddle.x + this.paddle.width &&
+                    this.ball.x + this.ball.width >= this.paddle.x &&
+                    this.ball.y <= this.paddle.y + this.paddle.height &&
+                    this.ball.y + this.ball.height >= this.paddle.y) {
+                    
+                    this.ball.velocityX = -this.ball.velocityX;
+                    
+                    // Add spin based on where the ball hits the paddle
+                    const hitPos = (this.ball.y + this.ball.height / 2) - (this.paddle.y + this.paddle.height / 2);
+                    this.ball.velocityY = hitPos * 0.1;
+                    
+                    WebcadeUtils.playSound(440, 0.1);
+                }
+
+                // Ball collision with AI paddle
+                if (this.ball.x + this.ball.width >= this.aiPaddle.x &&
+                    this.ball.x <= this.aiPaddle.x + this.aiPaddle.width &&
+                    this.ball.y <= this.aiPaddle.y + this.aiPaddle.height &&
+                    this.ball.y + this.ball.height >= this.aiPaddle.y) {
+                    
+                    this.ball.velocityX = -this.ball.velocityX;
+                    
+                    // Add spin based on where the ball hits the paddle
+                    const hitPos = (this.ball.y + this.ball.height / 2) - (this.aiPaddle.y + this.aiPaddle.height / 2);
+                    this.ball.velocityY = hitPos * 0.1;
+                    
+                    WebcadeUtils.playSound(440, 0.1);
+                }
+
+                // Ball out of bounds
+                if (this.ball.x < 0) {
+                    this.computerScore++;
+                    document.getElementById('computerScore').textContent = this.computerScore;
+                    this.resetBall();
+                    WebcadeUtils.playSound(330, 0.3);
+                } else if (this.ball.x > this.canvas.width) {
+                    this.playerScore++;
+                    this.score = this.playerScore;
+                    document.getElementById('scoreValue').textContent = this.playerScore;
+                    this.updateScore(this.playerScore);
+                    this.resetBall();
+                    WebcadeUtils.playSound(660, 0.3);
+                }
+
+                // Check for win condition
+                if (this.playerScore >= this.winScore) {
+                    this.endGame('You Win!');
+                } else if (this.computerScore >= this.winScore) {
+                    this.endGame('Computer Wins!');
+                }
+            }
+
+            resetBall() {
+                this.ball.x = this.canvas.width / 2;
+                this.ball.y = this.canvas.height / 2;
+                this.ball.velocityX = -this.ball.velocityX;
+                this.ball.velocityY = (Math.random() - 0.5) * 6;
+            }
+
+            draw() {
+                // Clear canvas
+                this.ctx.fillStyle = '#0a0a0a';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw center line
+                this.ctx.strokeStyle = '#333';
+                this.ctx.lineWidth = 3;
+                this.ctx.setLineDash([20, 20]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.canvas.width / 2, 0);
+                this.ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+
+                // Draw paddles
+                this.ctx.fillStyle = '#00ffff';
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = '#00ffff';
+                this.ctx.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
+                
+                this.ctx.fillStyle = '#ff00ff';
+                this.ctx.shadowColor = '#ff00ff';
+                this.ctx.fillRect(this.aiPaddle.x, this.aiPaddle.y, this.aiPaddle.width, this.aiPaddle.height);
+
+                // Draw ball
+                this.ctx.fillStyle = '#ffff00';
+                this.ctx.shadowColor = '#ffff00';
+                this.ctx.fillRect(this.ball.x, this.ball.y, this.ball.width, this.ball.height);
+
+                this.ctx.shadowBlur = 0;
+
+                if (this.paused) {
+                    this.drawPauseScreen();
+                }
+            }
+
+            endGame(message) {
+                this.gameOver = true;
+                document.getElementById('gameOverTitle').textContent = message;
+                this.showGameOver();
+            }
+
+            restart() {
+                this.init();
+            }
+
+            gameLoop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new PongGame();
+        });
+    </script>
+</body>
+</html>
